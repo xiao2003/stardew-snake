@@ -18,7 +18,7 @@ class Config:
     TARGET_FPS = 60
 
     # Window
-    WINDOW_TITLE = "星露谷风贪吃蛇"
+    WINDOW_TITLE = "Stardew Snake"
     HUD_HEIGHT = 72
     FONT_NAME = "microsoftyaheiui"
 

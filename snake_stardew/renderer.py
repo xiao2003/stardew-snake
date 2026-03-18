@@ -53,9 +53,10 @@ class Renderer:
         self.viewport_rect = pygame.Rect(0, 0, self.logical_w, self.logical_h)
         self.window_toggle_rect = pygame.Rect(0, 0, 0, 0)
 
-        self.font_title = pygame.font.SysFont(Config.FONT_NAME, 40, bold=True)
-        self.font_main = pygame.font.SysFont(Config.FONT_NAME, 24, bold=True)
-        self.font_small = pygame.font.SysFont(Config.FONT_NAME, 18)
+        self.font_title = self._load_font(56)
+        self.font_main = self._load_font(30)
+        self.font_small = self._load_font(22)
+        self.font_option = self._load_font(36)
 
         self.ground_tiles = self._build_ground_tiles(self.tile)
         self.border_tile = self._build_border_tile(self.tile)
@@ -63,6 +64,8 @@ class Renderer:
         self.snake_body_sprite = self._build_snake_body_sprite(self.tile)
         self.food_sprite = self._build_food_sprite(self.tile)
         self.hud_icon = self._load_hud_icon()
+        self.stardew_logo = self._load_stardew_logo()
+        self.stardew_menu_bg = self._load_stardew_menu_bg()
 
     def set_screen(self, screen: pygame.Surface) -> None:
         self.screen = screen
@@ -169,17 +172,13 @@ class Renderer:
         pygame.draw.rect(self.canvas, (92, 66, 46), pygame.Rect(0, self.hud_h - 8, self.logical_w, 8))
 
         boundary_text = "撞墙死亡" if snapshot.boundary_mode == BoundaryMode.SOLID else "穿墙模式"
-        title = self.font_main.render("星露谷风贪吃蛇", True, Config.COLOR_ACCENT)
-        score_text = self.font_small.render(f"分数: {snapshot.score}", True, (242, 233, 205))
-        high_text = self.font_small.render(f"最高分: {snapshot.high_score}", True, (242, 233, 205))
-        state_text = self.font_small.render(f"状态: {self._state_text(snapshot.state)}", True, (242, 233, 205))
-        mode_text = self.font_small.render(f"边界: {boundary_text}", True, (242, 233, 205))
-
-        self.canvas.blit(title, (64, 8))
-        self.canvas.blit(score_text, (16, 40))
-        self.canvas.blit(high_text, (130, 40))
-        self.canvas.blit(state_text, (270, 40))
-        self.canvas.blit(mode_text, (430, 40))
+        self._blit_text_with_shadow(self.canvas, self.font_main, "Stardew Snake", (64, 8), Config.COLOR_ACCENT)
+        self._blit_text_with_shadow(self.canvas, self.font_small, f"分数: {snapshot.score}", (16, 40), (242, 233, 205))
+        self._blit_text_with_shadow(self.canvas, self.font_small, f"最高分: {snapshot.high_score}", (150, 40), (242, 233, 205))
+        self._blit_text_with_shadow(
+            self.canvas, self.font_small, f"状态: {self._state_text(snapshot.state)}", (325, 40), (242, 233, 205)
+        )
+        self._blit_text_with_shadow(self.canvas, self.font_small, f"边界: {boundary_text}", (500, 40), (242, 233, 205))
         if self.hud_icon is not None:
             self.canvas.blit(self.hud_icon, (16, 8))
 
@@ -201,8 +200,15 @@ class Renderer:
     def _draw_app_shell(self, snapshot: RenderSnapshot) -> None:
         self.canvas.fill((158, 202, 132))
 
-        for y in range(0, self.logical_h, 18):
-            pygame.draw.line(self.canvas, (146, 188, 120), (0, y), (self.logical_w, y), 1)
+        if self.stardew_menu_bg is not None:
+            bg = pygame.transform.smoothscale(self.stardew_menu_bg, (self.logical_w, self.logical_h))
+            self.canvas.blit(bg, (0, 0))
+            tint = pygame.Surface((self.logical_w, self.logical_h), pygame.SRCALPHA)
+            tint.fill((28, 40, 20, 110))
+            self.canvas.blit(tint, (0, 0))
+        else:
+            for y in range(0, self.logical_h, 18):
+                pygame.draw.line(self.canvas, (146, 188, 120), (0, y), (self.logical_w, y), 1)
 
         # Soft clouds.
         pygame.draw.ellipse(self.canvas, (234, 243, 220), pygame.Rect(70, 28, 120, 36))
@@ -222,24 +228,39 @@ class Renderer:
         pygame.draw.rect(self.canvas, (178, 141, 98), ribbon, border_radius=10)
         pygame.draw.rect(self.canvas, (96, 70, 49), ribbon, 2, border_radius=10)
 
-        if self.hud_icon is not None:
-            icon = pygame.transform.scale(self.hud_icon, (72, 72))
-            self.canvas.blit(icon, (panel.x + 24, panel.y + 18))
-
-        title = self.font_title.render("星露谷风贪吃蛇", True, (255, 243, 192))
-        self.canvas.blit(title, (panel.x + 118, panel.y + 28))
+        if self.stardew_logo is not None:
+            logo_w = min(inner.width - 80, self.stardew_logo.get_width())
+            scale = logo_w / self.stardew_logo.get_width()
+            logo_h = int(self.stardew_logo.get_height() * scale)
+            logo = pygame.transform.smoothscale(self.stardew_logo, (logo_w, logo_h))
+            lx = inner.x + (inner.width - logo_w) // 2
+            ly = panel.y + 26
+            self.canvas.blit(logo, (lx, ly))
+        else:
+            if self.hud_icon is not None:
+                icon = pygame.transform.scale(self.hud_icon, (72, 72))
+                self.canvas.blit(icon, (panel.x + 24, panel.y + 18))
+            self._blit_text_with_shadow(
+                self.canvas,
+                self.font_title,
+                "Stardew Snake",
+                (panel.x + 118, panel.y + 34),
+                (255, 243, 192),
+            )
 
         if snapshot.state == GameState.MENU:
-            hint = self.font_small.render("上下选择，回车确认", True, (238, 224, 185))
-            self.canvas.blit(hint, (panel.x + 160, panel.y + 86))
+            self._blit_text_with_shadow(
+                self.canvas, self.font_small, "上下选择，回车确认", (panel.x + 170, panel.y + 132), (238, 224, 185)
+            )
             self._draw_app_menu_items(snapshot, inner)
         else:
-            hint = self.font_small.render("左右或回车切换，ESC 返回", True, (238, 224, 185))
-            self.canvas.blit(hint, (panel.x + 140, panel.y + 86))
+            self._blit_text_with_shadow(
+                self.canvas, self.font_small, "左右或回车切换，ESC 返回", (panel.x + 150, panel.y + 132), (238, 224, 185)
+            )
             self._draw_app_settings_items(snapshot, inner)
 
     def _draw_app_menu_items(self, snapshot: RenderSnapshot, inner: pygame.Rect) -> None:
-        start_y = inner.y + 130
+        start_y = inner.y + 220
         for i, item in enumerate(snapshot.menu_items):
             is_sel = i == snapshot.menu_index
             disabled = item == "继续游戏" and not snapshot.can_continue
@@ -249,10 +270,11 @@ class Renderer:
             if is_sel and not disabled:
                 color = (255, 247, 166)
 
-            text = self.font_main.render(("> " if is_sel else "  ") + item, True, color)
+            label = ("▶ " if is_sel else "  ") + item
+            text = self.font_option.render(label, True, color)
             x = inner.x + (inner.width - text.get_width()) // 2
-            y = start_y + i * 46
-            self.canvas.blit(text, (x, y))
+            y = start_y + i * 58
+            self._blit_text_with_shadow(self.canvas, self.font_option, label, (x, y), color)
 
     def _draw_app_settings_items(self, snapshot: RenderSnapshot, inner: pygame.Rect) -> None:
         boundary_value = "撞墙死亡" if snapshot.boundary_mode == BoundaryMode.SOLID else "穿墙模式"
@@ -263,14 +285,15 @@ class Renderer:
             "返回主菜单",
         ]
 
-        start_y = inner.y + 130
+        start_y = inner.y + 206
         for i, row in enumerate(rows):
             is_sel = i == snapshot.settings_index
             color = (255, 247, 166) if is_sel else (245, 234, 196)
-            text = self.font_main.render(("> " if is_sel else "  ") + row, True, color)
+            label = ("▶ " if is_sel else "  ") + row
+            text = self.font_main.render(label, True, color)
             x = inner.x + (inner.width - text.get_width()) // 2
-            y = start_y + i * 44
-            self.canvas.blit(text, (x, y))
+            y = start_y + i * 52
+            self._blit_text_with_shadow(self.canvas, self.font_main, label, (x, y), color)
 
     def _draw_pause_menu(self, snapshot: RenderSnapshot) -> None:
         self._draw_center_title("已暂停", -120)
@@ -292,22 +315,22 @@ class Renderer:
         for i, item in enumerate(items):
             is_sel = i == selected
             color = (255, 247, 166) if is_sel else (245, 234, 196)
-            text = self.font_main.render(("> " if is_sel else "  ") + item, True, color)
+            text = self.font_option.render(("> " if is_sel else "  ") + item, True, color)
             x = (self.logical_w - text.get_width()) // 2
-            y = start_y + i * 44
-            self.canvas.blit(text, (x, y))
+            y = start_y + i * 56
+            self._blit_text_with_shadow(self.canvas, self.font_option, ("> " if is_sel else "  ") + item, (x, y), color)
 
     def _draw_center_title(self, text: str, offset_y: int) -> None:
         surf = self.font_title.render(text, True, (255, 245, 201))
         x = (self.logical_w - surf.get_width()) // 2
         y = self.hud_h + (self.logical_h - self.hud_h) // 2 + offset_y
-        self.canvas.blit(surf, (x, y))
+        self._blit_text_with_shadow(self.canvas, self.font_title, text, (x, y), (255, 245, 201))
 
     def _draw_center_hint(self, text: str, offset_y: int) -> None:
         surf = self.font_small.render(text, True, (241, 230, 187))
         x = (self.logical_w - surf.get_width()) // 2
         y = self.hud_h + (self.logical_h - self.hud_h) // 2 + offset_y
-        self.canvas.blit(surf, (x, y))
+        self._blit_text_with_shadow(self.canvas, self.font_small, text, (x, y), (241, 230, 187))
 
     def _present_canvas(self) -> None:
         self.screen.fill((34, 30, 28))
@@ -403,6 +426,43 @@ class Renderer:
             return pygame.transform.scale(icon, (44, 44))
         except pygame.error:
             return None
+
+    def _load_stardew_logo(self) -> pygame.Surface | None:
+        logo_path = get_base_path() / "assets" / "stardew" / "stardew_logo.png"
+        if not logo_path.exists():
+            return None
+        try:
+            return pygame.image.load(str(logo_path)).convert_alpha()
+        except pygame.error:
+            return None
+
+    def _load_stardew_menu_bg(self) -> pygame.Surface | None:
+        bg_path = get_base_path() / "assets" / "stardew" / "stardew_bg.jpg"
+        if not bg_path.exists():
+            return None
+        try:
+            return pygame.image.load(str(bg_path)).convert()
+        except pygame.error:
+            return None
+
+    def _load_font(self, size: int) -> pygame.font.Font:
+        candidate = get_base_path() / "assets" / "fonts" / "LXGWWenKaiGB-Regular.ttf"
+        if candidate.exists():
+            try:
+                return pygame.font.Font(str(candidate), size)
+            except pygame.error:
+                pass
+        return pygame.font.SysFont(Config.FONT_NAME, size, bold=True)
+
+    @staticmethod
+    def _blit_text_with_shadow(
+        surface: pygame.Surface, font: pygame.font.Font, text: str, pos: tuple[int, int], color: tuple[int, int, int]
+    ) -> None:
+        x, y = pos
+        shadow = font.render(text, True, (36, 28, 22))
+        surface.blit(shadow, (x + 2, y + 2))
+        glyph = font.render(text, True, color)
+        surface.blit(glyph, (x, y))
 
     @staticmethod
     def _state_text(state: GameState) -> str:
