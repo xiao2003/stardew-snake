@@ -1,0 +1,26 @@
+﻿# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build artifacts
+build/
+dist/
+*.spec
+*.exe
+
+# Local runtime data
+data/
+_localappdata_test/
+
+# IDE
+.idea/
+.vscode/
+
+# Virtual env
+.venv/
+venv/
+
+# Logs
+*.log
